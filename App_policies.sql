@@ -1,43 +1,4 @@
 -- =============================================
--- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
--- =============================================
-
--- Функция, проверяющая, есть ли у текущего пользователя (auth.uid()) активная связь с partner_id
-CREATE OR REPLACE FUNCTION is_linked_with(partner_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1
-    FROM public."Links"
-    WHERE
-      status = 'linked' -- Статус активной связи
-      AND (
-        (user1_id = auth.uid() AND user2_id = partner_id) OR
-        (user2_id = auth.uid() AND user1_id = partner_id)
-      )
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Функция для проверки по link_id, имеет ли текущий пользователь доступ к данной связи
-CREATE OR REPLACE FUNCTION has_access_to_link(link_id_check uuid)
-RETURNS boolean AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1
-    FROM public."Links"
-    WHERE id = link_id_check
-    AND (user1_id = auth.uid() OR user2_id = auth.uid())
-    AND status = 'linked'
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Предоставление прав на выполнение функций
-GRANT EXECUTE ON FUNCTION is_linked_with(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION has_access_to_link(uuid) TO authenticated;
-
--- =============================================
 -- ТАБЛИЦА USERS - профили пользователей
 -- =============================================
 
@@ -524,3 +485,23 @@ ON public."MediaFiles" FOR ALL
 TO authenticated
 USING (uploaded_by_user_id = auth.uid())
 WITH CHECK (uploaded_by_user_id = auth.uid());
+
+
+
+-- ===========================================
+-- Политика для чтения: пользователи могут читать только свои уведомления
+CREATE POLICY "Users can read own notifications" 
+ON public."Notifications"
+FOR SELECT 
+TO authenticated
+USING (auth.uid() = recipient_id);
+
+-- Политика для обновления: пользователи могут обновлять только свои уведомления
+CREATE POLICY "Users can update own notifications" 
+ON public."Notifications" 
+FOR UPDATE 
+TO authenticated
+USING (auth.uid() = recipient_id)
+WITH CHECK (auth.uid() = recipient_id);
+
+-- Политика для вставки: только система (через триггеры) может создавать уведомления
