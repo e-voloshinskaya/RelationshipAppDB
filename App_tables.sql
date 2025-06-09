@@ -62,6 +62,17 @@ CREATE TABLE public.User_Theory_Progress (
     completed_at timestamp with time zone DEFAULT (now() AT TIME ZONE 'utc'::text),
     PRIMARY KEY (id));
 
+CREATE TABLE public."Notifications" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    recipient_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    related_item_id UUID,
+    is_read BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE public.Messages (
     sender_id uuid,
     receiver_id uuid,
